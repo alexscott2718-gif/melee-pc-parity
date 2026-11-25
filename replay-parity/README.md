@@ -17,7 +17,7 @@ replay-parity/
 ```
 
 Case sheets and side-by-side videos (the original game in Dolphin | melee-pc 0.4.2 | melee-pc with
-these fixes) were made with separate tooling: (link to come)
+these fixes) were made with separate tooling: https://exentt.com/meleepc-hfauzhya/
 
 ## What is compared
 
@@ -63,6 +63,9 @@ DISC=/path/to/GALE01.iso replay-parity/tools/run_all.sh build/replay-run MELEE_B
 
 The first line puts that layer's code under the newest `replay-parity/`; files that only later commits
 add stay in the tree but are not built. `git checkout HEAD -- src extern CMakeLists.txt` goes back.
+
+If configure fails on a missing XTest library (`libxtst-dev` on Debian), install it or add
+`-DSDL_X11_XTEST=OFF` to the cmake line; playback does not use it.
 
 `run_all.sh` plays each recording under a private Xvfb, with the network unshared when
 `unshare -rn` is available, compares it, writes `build/replay-run/results.jsonl` (one JSON line per
