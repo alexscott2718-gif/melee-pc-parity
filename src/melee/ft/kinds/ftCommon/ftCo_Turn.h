@@ -21,6 +21,8 @@ extern s8 ftCo_ucf_raw_x[4][3];
 /// UCF 0.84 pad buffer + 1.0 cardinals (0x8006B460); called from
 /// fighter.c after the stick timers, gated by pc_is_ucf_enabled().
 void ftCo_UcfPadBuffer(Fighter* fp);
+/// UCF 0.84: consecutive rim frames below -0.609375 (Shield Drop Extended).
+u8 ftCo_UcfSdropUpFrames(Fighter* fp);
 bool pc_is_ucf_enabled(void); /* src/pc/launcher.cpp, MELEE_UCF */
 bool ftCo_UcfDashback(Fighter* fp);
 

@@ -14,6 +14,7 @@
 #include "ftCo_ItemThrow.h"
 #include "ftCo_JumpAerial.h"
 #include "ftCo_SpecialAir.h"
+#include "ftCo_Turn.h"
 #include "types.h"
 #include <dolphin/mtx.h>
 #include <melee/ft/fighter.h>
@@ -50,11 +51,39 @@ bool ftCo_80099F9C(Fighter_GObj* gobj)
     return false;
 }
 
+#ifdef TARGET_PC
+/* UCF 0.84 Shield Drop Extended (Gecko code at 0x8009A0B8, inside the copy of
+ * ftCo_80099F1C that the retail code inlines into ftCo_8009A080; written
+ * from AltimorTASDK/ucf 5634468 src/shielddrop_extended/shielddrop_extended.cpp):
+ * the stick-down test also passes once the UCF pad buffer has counted two or
+ * more rim frames below -0.609375. The other callers of ftCo_80099F1C are not
+ * patched on the console either. */
+static bool ftCo_8009A080_StickDown(Fighter* fp)
+{
+    if (fp->input.lstick[0].y <= -p_ftCommonData->x464) {
+        return true;
+    }
+    return pc_is_ucf_enabled() && ftCo_UcfSdropUpFrames(fp) >= 2;
+}
+
+static bool ftCo_8009A080_CanPass(Fighter_GObj* gobj)
+{
+    Fighter* fp = gobj->user_data;
+    return ftCo_8009A080_StickDown(fp) &&
+           fp->active_timer.lstick.y < p_ftCommonData->x468 &&
+           mpColl_IsOnPlatform(&fp->coll_data);
+}
+#endif
+
 bool ftCo_8009A080(Fighter_GObj* gobj)
 {
     u8 _[8];
     Fighter* fp = gobj->user_data;
+#ifdef TARGET_PC
+    if (fp->input.held_buttons[0] & HSD_PAD_LR && ftCo_8009A080_CanPass(gobj)) {
+#else
     if (fp->input.held_buttons[0] & HSD_PAD_LR && ftCo_80099F1C(gobj)) {
+#endif
         ftCo_8009A228(gobj);
         return true;
     }

@@ -150,6 +150,13 @@ void ftCo_UcfPadBuffer(Fighter* fp)
     }
 }
 
+u8 ftCo_UcfSdropUpFrames(Fighter* fp)
+{
+    int port = (int) fp->pad_port;
+    return port >= 0 && port <= 3 ? ftCo_ucf_pad_buffer[port].sdrop_up_frames
+                                  : 0;
+}
+
 bool ftCo_800C97A8(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
