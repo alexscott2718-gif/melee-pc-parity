@@ -1,16 +1,29 @@
 #include <assert.h>
 #include <dolphin/mtx.h>
 
+/* Local parity fix: the Gekko paired-single PSMTX* routines the game calls
+ * fuse their multiply-adds (ps_madd / ps_madds0 / ps_madds1, one rounding)
+ * and sum in a fixed order; this mirrors each operation of the SDK assembly
+ * (doldecomp/melee libs/dolphin/src/dolphin/mtx/mtxvec.c PSMTXMultVec at 79b13a32) with fmaf,
+ * which is correctly rounded on every platform. */
 void C_MTXMultVec(const Mtx m, const Vec* src, Vec* dst) {
   Vec vTmp;
+  f32 r[3];
+  int i;
 
   assert(m && "MTXMultVec():  NULL MtxPtr 'm' ");
   assert(src && "MTXMultVec():  NULL VecPtr 'src' ");
   assert(dst && "MTXMultVec():  NULL VecPtr 'dst' ");
 
-  vTmp.x = m[0][3] + ((m[0][2] * src->z) + ((m[0][0] * src->x) + (m[0][1] * src->y)));
-  vTmp.y = m[1][3] + ((m[1][2] * src->z) + ((m[1][0] * src->x) + (m[1][1] * src->y)));
-  vTmp.z = m[2][3] + ((m[2][2] * src->z) + ((m[2][0] * src->x) + (m[2][1] * src->y)));
+  for (i = 0; i < 3; i++) {
+    /* ps_mul (m0 x, m1 y); ps_madd with (z, 1); ps_sum0 */
+    f32 p0 = __builtin_fmaf(m[i][2], src->z, m[i][0] * src->x);
+    f32 p1 = __builtin_fmaf(m[i][3], 1.0f, m[i][1] * src->y);
+    r[i] = p0 + p1;
+  }
+  vTmp.x = r[0];
+  vTmp.y = r[1];
+  vTmp.z = r[2];
   dst->x = vTmp.x;
   dst->y = vTmp.y;
   dst->z = vTmp.z;
@@ -37,16 +50,28 @@ void C_MTXMultVecArray(const Mtx m, const Vec* srcBase, Vec* dstBase, u32 count)
   }
 }
 
+/* Local parity fix: the Gekko paired-single PSMTX* routines the game calls
+ * fuse their multiply-adds (ps_madd / ps_madds0 / ps_madds1, one rounding)
+ * and sum in a fixed order; this mirrors each operation of the SDK assembly
+ * (doldecomp/melee libs/dolphin/src/dolphin/mtx/mtxvec.c PSMTXMultVecSR at 79b13a32) with fmaf,
+ * which is correctly rounded on every platform. */
 void C_MTXMultVecSR(const Mtx m, const Vec* src, Vec* dst) {
   Vec vTmp;
+  f32 r[3];
+  int i;
 
   assert(m && "MTXMultVecSR():  NULL MtxPtr 'm' ");
   assert(src && "MTXMultVecSR():  NULL VecPtr 'src' ");
   assert(dst && "MTXMultVecSR():  NULL VecPtr 'dst' ");
 
-  vTmp.x = (m[0][2] * src->z) + ((m[0][0] * src->x) + (m[0][1] * src->y));
-  vTmp.y = (m[1][2] * src->z) + ((m[1][0] * src->x) + (m[1][1] * src->y));
-  vTmp.z = (m[2][2] * src->z) + ((m[2][0] * src->x) + (m[2][1] * src->y));
+  for (i = 0; i < 3; i++) {
+    /* ps_mul (m0 x, m1 y); ps_sum0; ps_madd m2 z */
+    f32 s = m[i][0] * src->x + m[i][1] * src->y;
+    r[i] = __builtin_fmaf(m[i][2], src->z, s);
+  }
+  vTmp.x = r[0];
+  vTmp.y = r[1];
+  vTmp.z = r[2];
   dst->x = vTmp.x;
   dst->y = vTmp.y;
   dst->z = vTmp.z;

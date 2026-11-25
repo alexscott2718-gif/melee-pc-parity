@@ -38,38 +38,33 @@ void C_MTXCopy(const Mtx src, Mtx dst) {
   }
 }
 
+/* Local parity fix: the Gekko paired-single PSMTX* routines the game calls
+ * fuse their multiply-adds (ps_madd / ps_madds0 / ps_madds1, one rounding)
+ * and sum in a fixed order; this mirrors each operation of the SDK assembly
+ * (doldecomp/melee libs/dolphin/src/dolphin/mtx/mtx.c PSMTXConcat at 79b13a32) with fmaf,
+ * which is correctly rounded on every platform. */
 void C_MTXConcat(const Mtx a, const Mtx b, Mtx ab) {
-  Mtx mTmp;
-  MtxPtr m;
+  Mtx t;
+  int i, j;
 
   assert(a && "MTXConcat():  NULL MtxPtr 'a'  ");
   assert(b && "MTXConcat():  NULL MtxPtr 'b'  ");
   assert(ab && "MTXConcat():  NULL MtxPtr 'ab' ");
 
-  if (ab == a || ab == b) {
-    m = mTmp;
-  } else {
-    m = ab;
+  for (i = 0; i < 3; i++) {
+    for (j = 0; j < 4; j++) {
+      /* ps_muls0, ps_madds1, ps_madds0 */
+      f32 v = a[i][0] * b[0][j];
+      v = __builtin_fmaf(b[1][j], a[i][1], v);
+      v = __builtin_fmaf(b[2][j], a[i][2], v);
+      t[i][j] = v;
+    }
+    /* ps_madds1 with Unit01 = {0, 1}: column 2 gets 0 * a[i][3] added, column
+     * 3 gets 1 * a[i][3] */
+    t[i][2] = __builtin_fmaf(0.0f, a[i][3], t[i][2]);
+    t[i][3] = __builtin_fmaf(1.0f, a[i][3], t[i][3]);
   }
-
-  m[0][0] =       0 +  a[0][2] * b[2][0] + ((a[0][0] * b[0][0]) + (a[0][1] * b[1][0]));
-  m[0][1] =       0 +  a[0][2] * b[2][1] + ((a[0][0] * b[0][1]) + (a[0][1] * b[1][1]));
-  m[0][2] =       0 +  a[0][2] * b[2][2] + ((a[0][0] * b[0][2]) + (a[0][1] * b[1][2]));
-  m[0][3] = a[0][3] + (a[0][2] * b[2][3] +  (a[0][0] * b[0][3]  + (a[0][1] * b[1][3])));
-
-  m[1][0] =       0 +  a[1][2] * b[2][0] + ((a[1][0] * b[0][0]) + (a[1][1] * b[1][0]));
-  m[1][1] =       0 +  a[1][2] * b[2][1] + ((a[1][0] * b[0][1]) + (a[1][1] * b[1][1]));
-  m[1][2] =       0 +  a[1][2] * b[2][2] + ((a[1][0] * b[0][2]) + (a[1][1] * b[1][2]));
-  m[1][3] = a[1][3] + (a[1][2] * b[2][3] +  (a[1][0] * b[0][3]  + (a[1][1] * b[1][3])));
-
-  m[2][0] =       0 +  a[2][2] * b[2][0] + ((a[2][0] * b[0][0]) + (a[2][1] * b[1][0]));
-  m[2][1] =       0 +  a[2][2] * b[2][1] + ((a[2][0] * b[0][1]) + (a[2][1] * b[1][1]));
-  m[2][2] =       0 +  a[2][2] * b[2][2] + ((a[2][0] * b[0][2]) + (a[2][1] * b[1][2]));
-  m[2][3] = a[2][3] + (a[2][2] * b[2][3] +  (a[2][0] * b[0][3]  + (a[2][1] * b[1][3])));
-
-  if (m == mTmp) {
-    C_MTXCopy(mTmp, ab);
-  }
+  C_MTXCopy(t, ab);
 }
 
 void C_MTXConcatArray(const Mtx a, const Mtx* srcBase, Mtx* dstBase, u32 count) {
