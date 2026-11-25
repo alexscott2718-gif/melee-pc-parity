@@ -1944,6 +1944,9 @@ void fn_8016E2BC(void)
         for (i = 0; i < 6; i++) {
             if (Player_GetPlayerSlotType(i) != Gm_PKind_NA) {
                 getSpawnPoint(i, &sp18);
+#ifdef TARGET_PC
+                pc_slp_play_spawn(i, &sp18.x, &sp18.y, &sp18.z);
+#endif
                 tmp = &controller;
                 if (Player_GetFacingDirection(i) == 0.0F) {
                     if (Stage_80224DC8(controller.start.stkind) != 0) {
@@ -2007,6 +2010,7 @@ void fn_8016E730(StartMeleeData* arg0)
     VsSceneController* r30;
 
 #ifdef TARGET_PC
+    pc_slp_play_vs_setup();
     pc_slp_match_start(arg0); /* Slippi's SendGameInfo hooks here too */
     {
         /* Hash fields, not struct bytes: rules contain pointers and padding. */

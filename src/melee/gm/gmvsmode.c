@@ -15,6 +15,9 @@
 #include <melee/if/if_2FD9.h>
 #include <melee/lb/types.h>
 #include <melee/mn/types.h>
+#ifdef TARGET_PC
+#include "pc/slp.h"
+#endif
 
 /* 1B13B8 */ static void onEnterDebugVs(GameModeState*);
 /* 1B14A0 */ static void onEnterCss(GameModeState*);
@@ -235,6 +238,9 @@ void onEnterDebugVs(GameModeState* state)
     start->players[1].rumble_enabled = false;
     start->players[2].rumble_enabled = false;
     start->players[3].rumble_enabled = false;
+#ifdef TARGET_PC
+    pc_slp_play_start_data(start);
+#endif
 
     gm_LoadAnnouncer();
 }

@@ -326,11 +326,13 @@ static bool gm_RunSimTick(void (*on_frame)(void), struct gm_80479D58_t* temp_r25
         temp_r25->unk_10.pre_gobj_proc();
     }
 #ifdef TARGET_PC
+    pc_slp_play_frame_start();
     pc_slp_tick_begin();
 #endif
     HSD_GObj_RunProcs();
 #ifdef TARGET_PC
     pc_slp_tick_end(temp_r25->unk_10.unk_28);
+    pc_slp_play_post_tick(temp_r25->unk_10.unk_28);
 #endif
     if (temp_r25->unk_0 != -2) {
         temp_r25->unk_0++;
@@ -401,6 +403,10 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
 #ifdef TARGET_PC
             /* PORT: sleep until the pad alarm is due instead of spinning a
              * core against the workers this frame waits on (src/pc/os.c). */
+            if (pc_slp_play_active()) {
+                fn_800195FC(); /* slp playback: poll now, never wait */
+                continue;
+            }
             pc_os_wait_alarm();
 #endif
         }
@@ -430,6 +436,7 @@ void gm_801A4D34(void (*on_frame)(void), GameSceneInfo* info)
              * from one hand-off). The tick still runs, so pads are consumed
              * and GObjs animate, but the decision is made once. */
             void (*frame_fn)(void) = s_scene_end_held != 0 ? NULL : on_frame;
+            pc_slp_play_pre_tick();
             pc_net_sync();
             gm_RunSimTick(frame_fn, temp_r25);
             /* Finish rollback / sync-test re-simulation before gating the exit,

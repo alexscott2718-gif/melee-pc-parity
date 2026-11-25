@@ -23,6 +23,7 @@ extern void browser_yield(void);
 #include <string.h>
 
 #include "pc/pc.h"
+#include "pc/slp.h"
 #include "pc/launcher.h"
 #include "pc/touch.h"
 #include "pc/widescreen.h"
@@ -276,7 +277,8 @@ void pc_frame_boundary(void) {
         const u64 want = next_sim_ns - now;
         /* On standard 60 Hz VSync, aurora_begin_frame already waited for VBlank. On high-refresh
          * (120/144/240 Hz) or VSync-off, this throttles simulation to exact 60 Hz. */
-        if (PC_PACE_ALWAYS || !aurora_vsync_enabled() || want > 2000000ull) {
+        if (!pc_slp_play_active() &&
+            (PC_PACE_ALWAYS || !aurora_vsync_enabled() || want > 2000000ull)) {
             u64 started = (fps_log || timing_debug) ? SDL_GetTicksNS() : 0;
             bool pace_trace = aurora_trace_begin("Simulation pacing sleep");
             pc_pace_wait(want);

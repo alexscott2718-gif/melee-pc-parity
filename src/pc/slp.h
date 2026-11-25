@@ -10,6 +10,7 @@
 #ifndef PC_SLP_H
 #define PC_SLP_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -42,6 +43,17 @@ int32_t pc_net_sim_frame(void);
 /* The newest netplay frame no rollback can change (record_confirm);
  * INT32_MIN when no session is running. */
 int32_t pc_net_confirmed_frame(void);
+
+/* slp_play.c: MELEE_SLP_PLAY=<file.slp> replay playback, for measuring how
+ * exactly this build reproduces a recording. Inert unless the variable is
+ * set. */
+bool pc_slp_play_active(void);
+void pc_slp_play_start_data(struct StartMeleeData* d);
+void pc_slp_play_vs_setup(void);
+void pc_slp_play_spawn(int slot, float* x, float* y, float* z);
+void pc_slp_play_pre_tick(void);
+void pc_slp_play_frame_start(void);
+void pc_slp_play_post_tick(uint64_t proc_mask);
 
 #ifdef __cplusplus
 }

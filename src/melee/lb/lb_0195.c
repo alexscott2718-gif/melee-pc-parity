@@ -8,6 +8,9 @@
 #include <dolphin/os.h>
 #include <dolphin/vi.h>
 #include <sysdolphin/baselib/controller.h>
+#ifdef TARGET_PC
+#include "pc/slp.h"
+#endif
 
 struct UnkArrElem {
     /* 0x00 */ s64 x0;
@@ -106,6 +109,11 @@ void lb_80019628(void)
         OSCancelAlarm(&lb_804329F0.alarm);
     }
     OSCreateAlarm(&lb_804329F0.alarm);
+#ifdef TARGET_PC
+    /* slp playback: no periodic pad alarm; the scene loop polls once per
+     * iteration, so every tick is drawn and gets exactly one sample */
+    if (!pc_slp_play_active())
+#endif
     OSSetPeriodicAlarm(&lb_804329F0.alarm, lb_804329F0.x40, lb_804329F0.x40,
                        (OSAlarmHandler) fn_800195FC);
     lb_804329F0.x48 = 1;

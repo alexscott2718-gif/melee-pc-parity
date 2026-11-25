@@ -219,6 +219,7 @@ set(PC_SOURCES
         src/pc/os.c
         src/pc/region.c
         src/pc/slp.c
+        src/pc/slp_play.c
         src/pc/slp_format.c
         src/pc/stb_vorbis.c
         src/pc/thp.c
