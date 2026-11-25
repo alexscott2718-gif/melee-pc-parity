@@ -271,7 +271,8 @@ set(PC_SOURCES
         src/pc/libm/pc_sindf.c
         src/pc/libm/pc_sinf.c
         src/pc/libm/pc_tandf.c
-        src/pc/libm/pc_tanf.c)
+        src/pc/libm/pc_tanf.c
+        src/pc/libm/pc_msl_trigf.c)
 # iOS, not APPLE: ios_dialog.m imports UIKit, which the macOS SDK has no
 # headers for. The glob this replaced matched src/pc/*.m on macOS too.
 if (IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")

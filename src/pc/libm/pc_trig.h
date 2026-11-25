@@ -14,10 +14,18 @@ float pc_cosf(float x);
 float pc_tanf(float x);
 float pc_atanf(float x);
 
-#define sinf pc_sinf
-#define cosf pc_cosf
-#define tanf pc_tanf
-#define atanf pc_atanf
+/* Local parity fix-02: the game's own polynomials instead of musl's
+ * (pc_msl_trigf.c: MSL trigf.c sinf/cosf, math_1.c tanf, lbtrigf.c atanf,
+ * with the retail fused sites as fmaf). Still one implementation for every
+ * platform: fmaf is correctly rounded. */
+float pc_msl_sinf(float x);
+float pc_msl_cosf(float x);
+float pc_msl_tanf(float x);
+float pc_msl_atanf(float x);
+#define sinf pc_msl_sinf
+#define cosf pc_msl_cosf
+#define tanf pc_msl_tanf
+#define atanf pc_msl_atanf
 
 /* MELEE_FP_PERTURB=<name> (CMakeLists.txt) re-routes one of them through the
  * 1-ULP wrapper in pc_perturb.c, which is how tools/net_determinism.py
