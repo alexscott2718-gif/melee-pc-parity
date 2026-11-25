@@ -23,6 +23,10 @@ extern s8 ftCo_ucf_raw_x[4][3];
 void ftCo_UcfPadBuffer(Fighter* fp);
 /// UCF 0.84: consecutive rim frames below -0.609375 (Shield Drop Extended).
 u8 ftCo_UcfSdropUpFrames(Fighter* fp);
+/// UCF 0.84 Tumble: the tumble wiggle's stick X hold time test.
+bool ftCo_UcfTumbleWiggle(Fighter* fp, bool vanilla);
+/// UCF 0.84 DBOOC SquatRv Fix: the SquatWait threshold to use.
+float ftCo_UcfSquatRvThreshold(Fighter* fp, float vanilla);
 bool pc_is_ucf_enabled(void); /* src/pc/launcher.cpp, MELEE_UCF */
 bool ftCo_UcfDashback(Fighter* fp);
 

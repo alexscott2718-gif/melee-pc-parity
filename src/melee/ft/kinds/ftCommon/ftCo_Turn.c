@@ -150,6 +150,48 @@ void ftCo_UcfPadBuffer(Fighter* fp)
     }
 }
 
+/* UCF check_ucf_xsmash (include/ucf/pad_buffer.h): the raw stick X moved
+ * more than 75 units between the sample two entries back and this one */
+static bool ucf_xsmash(Fighter* fp)
+{
+    ftCo_UcfPadBuffer_t* buf = &ftCo_ucf_pad_buffer[fp->pad_port & 3];
+    int dx = buf->stick[buf->index][0] - buf->stick[(buf->index - 2) & 3][0];
+    return dx * dx > 75 * 75;
+}
+
+/* UCF 0.84 Tumble (Gecko code at Interrupt_AS_DamageFall+0xCC; written from
+ * AltimorTASDK/ucf 5634468 src/tumble/tumble.cpp). Replaces the stick X hold
+ * time test of the tumble wiggle: hold time 0 passes, 2 or more fails, and
+ * hold time 1 passes only when the previous frame's stick X was inside the
+ * wiggle threshold and the raw stick moved fast (check_ucf_xsmash). */
+bool ftCo_UcfTumbleWiggle(Fighter* fp, bool vanilla)
+{
+    float last;
+    if (!pc_is_ucf_enabled()) {
+        return vanilla;
+    }
+    if (fp->active_timer.lstick.x != 1) {
+        return fp->active_timer.lstick.x < 1;
+    }
+    last = fp->input.lstick[1].x < 0.0f ? -fp->input.lstick[1].x
+                                         : fp->input.lstick[1].x;
+    return last < p_ftCommonData->x210 && ucf_xsmash(fp);
+}
+
+/* UCF 0.84 DBOOC SquatRv Fix (Gecko code at Interrupt_SquatRv+0x14; written
+ * from AltimorTASDK/ucf 5634468 src/dbooc/dbooc.S). With the stick on the rim
+ * and stick X hold time 0, SquatWait is kept down to y = -0.59 instead of the
+ * vanilla threshold. */
+float ftCo_UcfSquatRvThreshold(Fighter* fp, float vanilla)
+{
+    if (!pc_is_ucf_enabled() || fp->active_timer.lstick.x >= 1 ||
+        !ucf_is_rim(fp->input.lstick[0].x, fp->input.lstick[0].y))
+    {
+        return vanilla;
+    }
+    return 0.59f;
+}
+
 u8 ftCo_UcfSdropUpFrames(Fighter* fp)
 {
     int port = (int) fp->pad_port;
