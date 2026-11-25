@@ -15,6 +15,7 @@
 #include "ftCo_AttackS3.h"
 #include "ftCo_AttackS4.h"
 #include "ftCo_Dash.h"
+#include "ftCo_0A01.h"
 #include "ftCo_Guard.h"
 #include "ftCo_Jump.h"
 #include "ftCo_SpecialS.h"
@@ -26,6 +27,7 @@
 #include <melee/ft/types.h>
 #include <melee/pl/player.h>
 #include <pc/pc.h>
+#include <sysdolphin/baselib/controller.h>
 
 s8 ftCo_ucf_raw_x[4][3];
 
@@ -52,6 +54,100 @@ bool ftCo_UcfDashback(Fighter* fp)
                p_ftCommonData->dash_smash_stick_threshold &&
            fp->active_timer.lstick.x < p_ftCommonData->dash_smash_window &&
            delta * delta > 75 * 75;
+}
+
+/* UCF 0.84 pad buffer and 1.0 cardinals (the "UCF Pad Buffer + 1.0
+ * Cardinals" Gecko code, injected at PlayerThink_Input+0x750 = 0x8006B460).
+ * Written from the public UCF source, AltimorTASDK/ucf at 5634468
+ * (src/pad_buffer/pad_buffer.cpp, include/ucf/pad_buffer.h,
+ * include/util/melee/pad.h); its constants were checked against the
+ * assembled code in project-slippi/slippi-ssbm-asm at d0ce23a
+ * ("External/UCF 0.84/UCF/UCF Pad Buffer + 1.0 Cardinals.asm").
+ *
+ * For every human fighter, after the stick timers of the input read:
+ *   - the raw main stick of the pad sample this tick consumed (the raw queue
+ *     entry behind qread, UCF's get_input<0>) goes into a 4-entry ring per
+ *     port;
+ *   - 1.0 cardinals: when one raw axis is at or past +-80 and the other is
+ *     within +-6, the processed stick becomes exactly (+-1, 0) or (0, +-1),
+ *     main stick and C-stick alike (not while Zelda is in SpecialHiStart);
+ *   - sdrop_up_frames counts consecutive frames with the stick on the rim at
+ *     or below y = popo_to_nana(-0.6125) = -0.609375; the first such frame
+ *     counts only on a fast downward flick (stick Y hold time < 2 and a raw
+ *     Y change of more than 44 since two samples ago). UCF's Shield Drop
+ *     Extended reads it. */
+typedef struct {
+    s8 stick[4][2];
+    u8 index;
+    u8 sdrop_up_frames;
+} ftCo_UcfPadBuffer_t;
+static ftCo_UcfPadBuffer_t ftCo_ucf_pad_buffer[4];
+
+/* UCF abs_coord_to_int + 1: (int)(|x| * 80 - 0.0001) + 2, where the console
+ * computes |x| * 80 - 0.0001 with one rounding (fmsubs) */
+static int ucf_rim_coord(float v)
+{
+    float a = v < 0.0f ? -v : v;
+    return (int) __builtin_fmaf(a, 80.0f, -0.0001f) + 2;
+}
+
+static bool ucf_is_rim(float x, float y)
+{
+    int ix = ucf_rim_coord(x);
+    int iy = ucf_rim_coord(y);
+    return ix * ix + iy * iy > 80 * 80;
+}
+
+static void ucf_apply_cardinals(s8 raw_x, s8 raw_y, Vec2* stick)
+{
+    if ((raw_x <= -80 || raw_x >= 80) && raw_y >= -6 && raw_y <= 6) {
+        stick->x = raw_x < 0 ? -1.0f : 1.0f;
+        stick->y = 0.0f;
+    } else if ((raw_y <= -80 || raw_y >= 80) && raw_x >= -6 && raw_x <= 6) {
+        stick->x = 0.0f;
+        stick->y = raw_y < 0 ? -1.0f : 1.0f;
+    }
+}
+
+void ftCo_UcfPadBuffer(Fighter* fp)
+{
+    PadLibData* p = &HSD_PadLibData;
+    ftCo_UcfPadBuffer_t* buf;
+    const PADStatus* raw;
+    int port = (int) fp->pad_port;
+
+    if (ftCo_IsCpuControlled(fp) || port < 0 || port > 3 ||
+        p->queue == NULL || p->qnum == 0)
+    {
+        return;
+    }
+    raw = &p->queue->stat[((p->qread + p->qnum - 1) % p->qnum) * 4 + port];
+    buf = &ftCo_ucf_pad_buffer[port];
+    buf->index = (buf->index + 1) & 3;
+    buf->stick[buf->index][0] = raw->stickX;
+    buf->stick[buf->index][1] = raw->stickY;
+
+    if (!(fp->kind == Ft_Kind_Zelda && fp->motion_id == 349)) {
+        ucf_apply_cardinals(raw->stickX, raw->stickY, &fp->input.lstick[0]);
+        ucf_apply_cardinals(raw->substickX, raw->substickY,
+                            &fp->input.cstick[0]);
+    }
+
+    {
+        bool up = false;
+        if (!(fp->input.lstick[0].y > -0.609375f) &&
+            ucf_is_rim(fp->input.lstick[0].x, fp->input.lstick[0].y))
+        {
+            if (buf->sdrop_up_frames != 0) {
+                up = true;
+            } else if (fp->active_timer.lstick.y < 2) {
+                int dy = buf->stick[buf->index][1] -
+                         buf->stick[(buf->index - 2) & 3][1];
+                up = dy * dy > 44 * 44;
+            }
+        }
+        buf->sdrop_up_frames = up ? buf->sdrop_up_frames + 1 : 0;
+    }
 }
 
 bool ftCo_800C97A8(Fighter_GObj* gobj)

@@ -18,6 +18,10 @@
 
 /// UCF: octagon-clamped raw stick X per port, [0] this frame .. [2] two ago.
 extern s8 ftCo_ucf_raw_x[4][3];
+/// UCF 0.84 pad buffer + 1.0 cardinals (0x8006B460); called from
+/// fighter.c after the stick timers, gated by pc_is_ucf_enabled().
+void ftCo_UcfPadBuffer(Fighter* fp);
+bool pc_is_ucf_enabled(void); /* src/pc/launcher.cpp, MELEE_UCF */
 bool ftCo_UcfDashback(Fighter* fp);
 
 #endif

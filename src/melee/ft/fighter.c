@@ -2054,6 +2054,10 @@ void Fighter_procInput(Fighter_GObj* gobj)
                 fp->activity_timer.lstick.x = 0;
             }
 
+            if (pc_is_ucf_enabled()) {
+                ftCo_UcfPadBuffer(fp); /* UCF 0.84 pad buffer + 1.0 cardinals */
+            }
+
             // Fighter_ClampSpecificValue
             fp->active_duration.trigger++;
             if (fp->active_duration.trigger > 254) {
