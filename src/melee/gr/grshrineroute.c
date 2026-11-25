@@ -20,6 +20,7 @@
 #include <melee/lb/lbvector.h>
 #include <melee/mp/mplib.h>
 #include <melee/pl/player.h>
+#include <Runtime/fma.h>
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/gobjgxlink.h>
@@ -783,9 +784,11 @@ void grShrineRoute_80209AF0(Ground_GObj* gobj)
     grShrineRoute_8020A8A4(gobj);
     gp->u.shrineroute3.xCC = 0.0f;
     gp->u.shrineroute3.xC8 = 0.0f;
-    gp->u.shrineroute3.xD0 = 0.00006981317F * HSD_Randf() + 0.000017453292F;
+    gp->u.shrineroute3.xD0 =
+        FMA_MUL_ADD(0.00006981317F, HSD_Randf(), 0.000017453292F);
     gp->u.shrineroute3.xD0 *= (HSD_Randi(2) != 0) ? 1.0f : -1.0F;
-    gp->u.shrineroute3.xD4 = 0.00006981317F * HSD_Randf() + 0.000017453292F;
+    gp->u.shrineroute3.xD4 =
+        FMA_MUL_ADD(0.00006981317F, HSD_Randf(), 0.000017453292F);
     gp->u.shrineroute3.xD4 *= (HSD_Randi(2) != 0) ? 1.0f : -1.0F;
 }
 
@@ -827,13 +830,14 @@ void grShrineRoute_80209BEC(Ground_GObj* gobj)
         gp->u.shrineroute3.xC8 = -ABS(gp->u.shrineroute3.xC8);
         {
             f32 tmp = HSD_Randf();
-            gp->u.shrineroute3.xD0 = 0.00006981317f * -tmp - 0.000017453292f;
+            gp->u.shrineroute3.xD0 =
+                FMA_MUL_SUB(0.00006981317f, -tmp, 0.000017453292f);
         }
     } else if (rot < -0.2617994f) {
         rot = -0.2617994f;
         gp->u.shrineroute3.xC8 = ABS(gp->u.shrineroute3.xC8);
         gp->u.shrineroute3.xD0 =
-            0.00006981317f * HSD_Randf() + 0.000017453292f;
+            FMA_MUL_ADD(0.00006981317f, HSD_Randf(), 0.000017453292f);
     }
     HSD_JObjSetRotationX(jobj, rot);
 
@@ -845,13 +849,13 @@ void grShrineRoute_80209BEC(Ground_GObj* gobj)
             {
                 f32 tmp = HSD_Randf();
                 gp->u.shrineroute3.xD4 =
-                    0.00006981317f * -tmp - 0.000017453292f;
+                    FMA_MUL_SUB(0.00006981317f, -tmp, 0.000017453292f);
             }
         } else if (rot < -0.17453292f) {
             rot = -0.17453292f;
             gp->u.shrineroute3.xCC = ABS(gp->u.shrineroute3.xCC);
             gp->u.shrineroute3.xD4 =
-                0.00006981317f * HSD_Randf() + 0.000017453292f;
+                FMA_MUL_ADD(0.00006981317f, HSD_Randf(), 0.000017453292f);
         }
         HSD_JObjSetRotationY(jobj, rot);
     }
@@ -1130,9 +1134,11 @@ void grShrineRoute_8020A8A4(Ground_GObj* gobj)
         HSD_JObjSetTranslateX(gp->u.shrineroute3.xC4, 300.0f * cosf(angle));
         HSD_JObjSetTranslateY(gp->u.shrineroute3.xC4, 300.0f * sinf(angle));
         gp->u.shrineroute3.xD8 =
-            0.04363323f * ((2.0f * grShrineRoute_8020A8A4_rand()) - 1.0f);
+            0.04363323f *
+            (FMA_MUL_SUB(2.0f, grShrineRoute_8020A8A4_rand(), 1.0f));
         gp->u.shrineroute3.xDC =
-            0.04363323f * ((2.0f * grShrineRoute_8020A8A4_rand()) - 1.0f);
+            0.04363323f *
+            (FMA_MUL_SUB(2.0f, grShrineRoute_8020A8A4_rand(), 1.0f));
     }
 }
 

@@ -17,6 +17,7 @@
 #include <melee/lb/lb_00F9.h>
 #include <melee/lb/lbspdisplay.h>
 #include <melee/mp/mplib.h>
+#include <Runtime/fma.h>
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/dobj.h>
 #include <sysdolphin/baselib/gobj.h>

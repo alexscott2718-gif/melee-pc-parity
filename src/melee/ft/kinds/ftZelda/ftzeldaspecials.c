@@ -22,6 +22,7 @@
 #include <melee/ft/types.h>
 #include <melee/it/kinds/itzeldadinfire.h>
 #include <melee/lb/lb_00B0.h>
+#include <Runtime/fma.h>
 
 static MotionFlags const ftZd_MF_SpecialSStart_Coll =
     ftCommon_GroundAirColl_MF | Ft_MF_KeepGfx;
@@ -102,7 +103,7 @@ void ftZd_SpecialSStart_Anim(HSD_GObj* gobj)
 
         sp24.z = 0;
         temp_f2 = attributes->x20;
-        sp24.x = (temp_f2 * fp->facing_dir) + sp24.x;
+        sp24.x = FMA_MUL_ADD(temp_f2, fp->facing_dir, sp24.x);
         sp24.y += attributes->x24;
 
         temp_r3 = it_802C3BAC(gobj, &sp24, fp->facing_dir, temp_f2);
@@ -145,7 +146,7 @@ void ftZd_SpecialSLoop_Anim(HSD_GObj* gobj)
 
         sp20.z = 0;
         temp_f2 = attributes->x20;
-        sp20.x = (temp_f2 * fp->facing_dir) + sp20.x;
+        sp20.x = FMA_MUL_ADD(temp_f2, fp->facing_dir, sp20.x);
         sp20.y += attributes->x24;
 
         temp_r3_u32 = it_802C3BAC(gobj, &sp20, fp->facing_dir, temp_f2);
@@ -228,7 +229,7 @@ void ftZd_SpecialAirSStart_Anim(HSD_GObj* gobj)
 
         sp24.z = 0;
         temp_f2 = attributes->x20;
-        sp24.x = (temp_f2 * fp->facing_dir) + sp24.x;
+        sp24.x = FMA_MUL_ADD(temp_f2, fp->facing_dir, sp24.x);
         sp24.y += attributes->x24;
 
         temp_r3 = it_802C3BAC(gobj, &sp24, fp->facing_dir, temp_f2);
@@ -270,7 +271,7 @@ void ftZd_SpecialAirSLoop_Anim(HSD_GObj* gobj)
 
         sp20.z = 0;
         temp_f2 = attributes->x20;
-        sp20.x = temp_f2 * fp->facing_dir + sp20.x;
+        sp20.x = FMA_MUL_ADD(temp_f2, fp->facing_dir, sp20.x);
         sp20.y += attributes->x24;
 
         temp_r3 = it_802C3BAC(gobj, &sp20, fp->facing_dir, temp_f2);

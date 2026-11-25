@@ -8,6 +8,7 @@
 #include "state.h"
 #include <dolphin/gx.h>
 #include <dolphin/gx/GXGeometry.h>
+#include <Runtime/fma.h>
 
 /* 4CF810 */ extern struct ParticleScreenState hsd_804CF810;
 
@@ -173,10 +174,10 @@ f32 DrawASCII(int chr, float x, float y, GXColor* color)
         p0 = glyph[i++];
         p1 = glyph[i++];
         GXBegin(0xA8, 0, 2);
-        GXPosition2f32(lbl_804D6070 * (0.11F * (p0 >> 4)) + x,
-                       lbl_804D6074 * (0.11F * (p0 & 0xF)) + y);
+        GXPosition2f32(FMA_MUL_ADD(lbl_804D6070, (0.11F * (p0 >> 4)), x),
+                       FMA_MUL_ADD(lbl_804D6074, (0.11F * (p0 & 0xF)), y));
         GXColor4u8(color->r, color->g, color->b, color->a);
-        GXPosition2f32(lbl_804D6070 * (0.11F * (p1 >> 4)) + x,
+        GXPosition2f32(FMA_MUL_ADD(lbl_804D6070, (0.11F * (p1 >> 4)), x),
                        lbl_804D6074 * (0.11F * (p1 & 0xF)) + y);
         GXColor4u8(color->r, color->g, color->b, color->a);
         GXEnd();
@@ -308,8 +309,8 @@ void hsd_80391E18(const u8* list, f32 x1, f32 y1, f32 x2, f32 y2)
         GXTexCoord1f32(prev_x);
         GXTexCoord1f32(prev_y);
 
-        prev_x = t * dx + x1;
-        prev_y = t * dy + y1;
+        prev_x = FMA_MUL_ADD(t, dx, x1);
+        prev_y = FMA_MUL_ADD(t, dy, y1);
 
         /* The gradient words are host-native 0xRRGGBBAA (see hsd_392A.c);
          * aliasing them as bytes reads them back as A,B,G,R here. */
@@ -331,12 +332,12 @@ static inline f32 hsd_80391F28_len(f32 dy, f32 dx)
 {
     f32 len;
 
-    len = (dx * dx) + (dy * dy);
+    len = FMA_MUL_ADD(dx, dx, (dy * dy));
     if (len > 0.0F) {
         f64 e = __frsqrte(len);
-        e = 0.5 * e * -(len * (e * e) - 3.0);
-        e = 0.5 * e * -(len * (e * e) - 3.0);
-        e = 0.5 * e * -(len * (e * e) - 3.0);
+        e = 0.5 * e * -(FMA_MUL_SUB(len, (e * e), 3.0));
+        e = 0.5 * e * -(FMA_MUL_SUB(len, (e * e), 3.0));
+        e = 0.5 * e * -(FMA_MUL_SUB(len, (e * e), 3.0));
         e = len * e;
         {
             volatile f32 temp = (f32) e;

@@ -12,6 +12,7 @@
 #include "wobj.h"
 #include <dolphin/gx.h>
 #include <dolphin/mtx.h>
+#include <Runtime/fma.h>
 #include <dolphin/types.h>
 #include <melee/lb/lbarchive.h> ///< @todo Circular include
 #include "pc/disc.h"
@@ -568,9 +569,9 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, uintptr_t pass)
             min_x = text->pos_x;
             min_y = text->pos_y;
             max_x =
-                (text->box_size_x * text->font_size.x) + text->pos_x;
+                FMA_MUL_ADD(text->box_size_x, text->font_size.x, text->pos_x);
             max_y =
-                (text->box_size_y * text->font_size.y) + text->pos_y;
+                FMA_MUL_ADD(text->box_size_y, text->font_size.y, text->pos_y);
             GXSetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_A0);
             GXSetTevColor(GX_TEVREG0, *(&text->bg_color));
             GXBegin(GX_QUADS, GX_VTXFMT0, 4U);
@@ -592,10 +593,10 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, uintptr_t pass)
         }
         GXSetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A0, GX_CA_ZERO);
         if (text->x4E != 0) {
-            min_x = (text->x14.z * text->font_size.x) + text->pos_x;
-            max_x = (text->font_size.x * (text->box_size_x - text->x14.w)) + text->pos_x;
-            min_y = (text->x14.x * text->font_size.y) + text->pos_y;
-            max_y = (text->font_size.y * (text->box_size_y - text->x14.y)) + text->pos_y;
+            min_x = FMA_MUL_ADD(text->x14.z, text->font_size.x, text->pos_x);
+            max_x = FMA_MUL_ADD(text->font_size.x, (text->box_size_x - text->x14.w), text->pos_x);
+            min_y = FMA_MUL_ADD(text->x14.x, text->font_size.y, text->pos_y);
+            max_y = FMA_MUL_ADD(text->font_size.y, (text->box_size_y - text->x14.y), text->pos_y);
         }
         if (text->alloc_data != NULL) {
             text->x78.x = text->x3C.x;
@@ -679,7 +680,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, uintptr_t pass)
                                 line_height_out = 32.0F * text->x80.y;
                             }
                             line_started = 0U;
-                            text->current_height = ((text->font_size.y * ((text->x80.y * text->x78.y) + line_height_out)) + text->current_height);
+                            text->current_height = (FMA_MUL_ADD(text->font_size.y, (FMA_MUL_ADD(text->x80.y, text->x78.y, line_height_out)), text->current_height));
                             if (skip_count != 0U) {
                                 skip_count -= 1;
                             } else {
@@ -723,10 +724,10 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, uintptr_t pass)
                             }
                             switch ((s32) text->alignment) {
                             case 1:
-                                text->current_width = (f32) -((0.5F * (line_width_out * text->x88)) - x_origin);
+                                text->current_width = (f32) -(FMA_MUL_SUB(0.5F, (line_width_out * text->x88), x_origin));
                                 break;
                             case 2:
-                                text->current_width = (-((line_width_out * text->x88) - x_origin));
+                                text->current_width = (-(FMA_MUL_SUB(line_width_out, text->x88, x_origin)));
                                 break;
                             default:
                                 text->current_width = x_origin;

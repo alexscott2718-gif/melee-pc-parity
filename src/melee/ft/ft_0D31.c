@@ -23,6 +23,7 @@
 #include <melee/pl/player.h>
 #include <melee/pl/plbonuslib.h>
 #include <melee/pl/plstale.h>
+#include <Runtime/fma.h>
 #include <sysdolphin/baselib/random.h>
 
 const Quaternion lbl_803B7500 = { 0, 3.1415927f, 0, 0 };
@@ -453,8 +454,8 @@ void ftCo_DeadUpStar_Anim(Fighter_GObj* gobj)
         switch (fp->mv.co.unk_deadup.x44) {
         case 0:
             fp->self_vel.y =
-                (data->x514 * Stage_GetCamBoundsTopOffset() -
-                 fp->cur_pos.y) /
+                (FMA_MUL_SUB(data->x514, Stage_GetCamBoundsTopOffset(),
+                             fp->cur_pos.y)) /
                 (f32) data->x508;
             fp->self_vel.z = data->x510 / (f32) data->x508;
             fp->mv.co.unk_deadup.x40 = data->x508;

@@ -24,6 +24,7 @@
 #include <melee/mp/mpcoll.h>
 #include <melee/pl/player.h>
 #include <melee/sc/types.h>
+#include <Runtime/fma.h>
 #include <sysdolphin/baselib/aobj.h>
 #include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/controller.h>
@@ -337,9 +338,10 @@ void fn_8017A078(s32 arg0)
     cobj = HSD_CObjLoadDesc((HSD_CObjDesc*) &gmResultCameraDesc);
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
 
-    eye.y = (eye.y * (f32) (arg0 + 1)) + (0.7f * Player_800360D8(arg0));
-    interest.y =
-        (interest.y * (f32) (arg0 + 1)) + (0.7f * Player_800360D8(arg0));
+    eye.y =
+        FMA_MUL_ADD(eye.y, (f32) (arg0 + 1), (0.7f * Player_800360D8(arg0)));
+    interest.y = FMA_MUL_ADD(interest.y, (f32) (arg0 + 1),
+                             (0.7f * Player_800360D8(arg0)));
 
     mode = fn_801795D4();
     idx = fn_801796F0(arg0);
@@ -348,7 +350,7 @@ void fn_8017A078(s32 arg0)
     eye.x -= (f32) val;
     interest.y -= 10.0f;
     eye.y -= 10.0f;
-    eye.z += (20.0f * (f32) (mode - 2)) + 110.0f;
+    eye.z += FMA_MUL_ADD(20.0f, (f32) (mode - 2), 110.0f);
 
     if (mode == 0) {
         s32 kind = lbl_8046E3AC.char_kind[arg0];

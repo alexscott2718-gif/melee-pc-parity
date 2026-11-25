@@ -13,6 +13,7 @@
 #include "tev.h"
 #include <dolphin/gx.h>
 #include <dolphin/mtx.h>
+#include <Runtime/fma.h>
 
 /* Cached once: getenv() scans the whole environment, and these guards sit
  * on per-draw / per-voice paths where that cost is not acceptable even
@@ -463,8 +464,9 @@ static void TObjSetupMtx(HSD_TObj* tobj)
             mtx[i][0] = 0.5F * tobj->mtx[i][0];
             mtx[i][1] = -0.5F * tobj->mtx[i][1];
             mtx[i][2] = 0.0F;
-            mtx[i][3] = 0.5F * tobj->mtx[i][0] + 0.5F * tobj->mtx[i][1] +
-                        tobj->mtx[i][2] + tobj->mtx[i][3];
+            mtx[i][3] =
+                FMA_MUL_ADD(0.5F, tobj->mtx[i][0], 0.5F * tobj->mtx[i][1]) +
+                tobj->mtx[i][2] + tobj->mtx[i][3];
         }
         GXLoadTexMtxImm(mtx, tobj->mtxid, GX_MTX3x4);
     } break;
@@ -494,11 +496,11 @@ static void TObjSetupMtx(HSD_TObj* tobj)
             mtx[0][0] = tobj->mtx[0][0] * half.x;
             mtx[0][1] = tobj->mtx[0][0] * half.y;
             mtx[0][2] = tobj->mtx[0][0] * half.z;
-            mtx[0][3] = tobj->mtx[0][0] * 0.5F + tobj->mtx[0][3];
+            mtx[0][3] = FMA_MUL_ADD(tobj->mtx[0][0], 0.5F, tobj->mtx[0][3]);
             mtx[1][0] = tobj->mtx[1][0] * half.x;
             mtx[1][1] = tobj->mtx[1][0] * half.y;
             mtx[1][2] = tobj->mtx[1][0] * half.z;
-            mtx[1][3] = tobj->mtx[1][0] * 0.5F + tobj->mtx[1][3];
+            mtx[1][3] = FMA_MUL_ADD(tobj->mtx[1][0], 0.5F, tobj->mtx[1][3]);
             mtx[2][0] = mtx[2][1] = mtx[2][2] = 0.0F;
             mtx[2][3] = 1.0F;
 

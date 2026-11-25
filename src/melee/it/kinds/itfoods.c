@@ -7,6 +7,7 @@
 #include <melee/it/item.h>
 #include <melee/it/itgroundcoll.h>
 #include <melee/it/itspawn.h>
+#include <Runtime/fma.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/random.h>
 

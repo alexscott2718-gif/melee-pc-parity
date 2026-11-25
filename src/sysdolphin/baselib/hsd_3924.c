@@ -7,6 +7,7 @@
 #include "list.h"
 #include "memory.h"
 #include <dolphin/gx.h>
+#include <Runtime/fma.h>
 
 // .sbss
 /* 4D7850 */ static HSD_SList* hsd_804D7850;
@@ -180,8 +181,8 @@ void hsd_8039254C(void)
                     col_pos = 0;
                     if (lbl_804D6080.a != 0) {
                         bg_col1 = lbl_804D6080;
-                        DrawRectangle(-10.0F, (10.0F * line) - 5.0F, 620.0F,
-                                      10.0F, p_bg_col1);
+                        DrawRectangle(-10.0F, FMA_MUL_SUB(10.0F, line, 5.0F),
+                                      620.0F, 10.0F, p_bg_col1);
                     }
                 }
                 hsd_80391A04(10.0F, 10.0F, 6);
@@ -198,12 +199,12 @@ void hsd_8039254C(void)
                     line -= 0.5;
                     if (lbl_804D6080.a != 0) {
                         bg_col2 = lbl_804D6080;
-                        DrawRectangle(-10.0F, (10.0F * line) - 5.0F, 620.0F,
-                                      5.0F, p_bg_col2);
+                        DrawRectangle(-10.0F, FMA_MUL_SUB(10.0F, line, 5.0F),
+                                      620.0F, 5.0F, p_bg_col2);
                     }
                 }
                 hsd_80391A04(10.0F, 10.0F, 24);
-                t2 = (10.0F * line) + 2.0F;
+                t2 = FMA_MUL_ADD(10.0F, line, 2.0F);
                 hsd_80391E18(item->content.gradient, 0.0F, t2, 600.0F, t2);
                 col_pos = 60;
                 break;
@@ -219,18 +220,20 @@ void hsd_8039254C(void)
                         line -= 0.5;
                         if (lbl_804D6080.a != 0) {
                             bg_col3 = lbl_804D6080;
-                            DrawRectangle(-10.0F, (10.0F * line) - 5.0F,
+                            DrawRectangle(-10.0F,
+                                          FMA_MUL_SUB(10.0F, line, 5.0F),
                                           620.0F, 5.0F, p_bg_col3);
                         }
                     }
                     hsd_80391A04(10.0F, 10.0F, 12);
-                    bar_y = (10.0F * line) + 2.0F;
+                    bar_y = FMA_MUL_ADD(10.0F, line, 2.0F);
                     bar_x = 0.0F;
                     bar_draw_ptr = item;
                     while ((count = bar_draw_ptr->content.bars[0].count) > 0) {
                         f32 prev_x;
                         prev_x = bar_x;
-                        bar_x += (600.0F / (f32) char_count) * (f32) count;
+                        FMA_ADD_TO(bar_x, (600.0F / (f32) char_count),
+                                   (f32) count);
                         {
                             u32 c = bar_draw_ptr->content.bars[0].color;
                             bar_col.r = (u8) (c >> 24);

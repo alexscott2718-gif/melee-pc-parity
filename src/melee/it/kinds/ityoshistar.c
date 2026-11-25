@@ -7,6 +7,7 @@
 #include <melee/it/it_2725.h>
 #include <melee/it/item.h>
 #include <melee/it/itgroundcoll.h>
+#include <Runtime/fma.h>
 #include <sysdolphin/baselib/gobj.h>
 
 ItemStateTable it_803F7158[] = { {
@@ -94,7 +95,7 @@ void itYoshistar_UnkMotion0_Phys(Item_GObj* item_gobj)
     ItemAttr* attr = item->xCC_item_attr;
     StarAttrs* star = DP(StarAttrs, item->xC4_article_data->x4_specialAttributes);
     it_80272860(item_gobj, attr->x10_fall_speed, attr->x14_fall_speed_max);
-    item->x40_vel.x += star->accel * item->facing_dir;
+    FMA_ADD_TO(item->x40_vel.x, star->accel, item->facing_dir);
 }
 
 bool itYoshistar_UnkMotion0_Coll(Item_GObj* item_gobj)
