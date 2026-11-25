@@ -107,6 +107,7 @@ void pc_frame_boundary(void) {
         timing_debug = getenv("MELEE_NET_DEBUG") != NULL;
     if (s_in_frame) {
         u64 started = timing_debug ? SDL_GetTicksNS() : 0;
+        pc_slp_play_dump_frame();
         aurora_end_frame();
         if (timing_debug) {
             u64 elapsed = SDL_GetTicksNS() - started;

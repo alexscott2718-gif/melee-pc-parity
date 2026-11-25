@@ -30,6 +30,9 @@
 #include "window.hpp"
 
 #include <SDL3/SDL_filesystem.h>
+#include <cstdio>
+#include <mutex>
+#include <string>
 #include <magic_enum.hpp>
 
 #include "system_info.hpp"
@@ -318,6 +321,131 @@ bool begin_frame() noexcept {
   return true;
 }
 
+namespace {
+/* ---- frame dump (aurora_dump_next_frame) ---------------------------------- */
+struct FrameDumpRequest {
+  bool on = false;
+  int32_t label = 0;
+  float scale = 1.f;
+  std::string dir;
+};
+std::mutex g_frameDumpMutex;
+FrameDumpRequest g_frameDumpNext;
+
+uint32_t dump_crc32(uint32_t crc, const uint8_t* p, size_t n) {
+  static uint32_t table[256];
+  static bool init = false;
+  if (!init) {
+    for (uint32_t i = 0; i < 256; i++) {
+      uint32_t c = i;
+      for (int k = 0; k < 8; k++) {
+        c = (c & 1) ? 0xEDB88320u ^ (c >> 1) : c >> 1;
+      }
+      table[i] = c;
+    }
+    init = true;
+  }
+  crc = ~crc;
+  for (size_t i = 0; i < n; i++) {
+    crc = table[(crc ^ p[i]) & 0xFF] ^ (crc >> 8);
+  }
+  return ~crc;
+}
+
+void dump_put_be32(std::string& s, uint32_t v) {
+  s.push_back(char(v >> 24));
+  s.push_back(char(v >> 16));
+  s.push_back(char(v >> 8));
+  s.push_back(char(v));
+}
+
+void dump_chunk(std::string& png, const char* type, const std::string& data) {
+  dump_put_be32(png, uint32_t(data.size()));
+  std::string body(type, 4);
+  body += data;
+  png += body;
+  dump_put_be32(png, dump_crc32(0, reinterpret_cast<const uint8_t*>(body.data()), body.size()));
+}
+
+/* An RGB8 PNG with stored (uncompressed) deflate blocks: no zlib needed. */
+bool dump_write_png(const std::string& path, const std::vector<uint8_t>& rgb, uint32_t w, uint32_t h) {
+  std::string raw;
+  raw.reserve(size_t(h) * (w * 3 + 1));
+  for (uint32_t y = 0; y < h; y++) {
+    raw.push_back(0);
+    raw.append(reinterpret_cast<const char*>(rgb.data()) + size_t(y) * w * 3, size_t(w) * 3);
+  }
+  std::string z = "\x78\x01";
+  uint32_t a = 1, b = 0;
+  for (unsigned char c : raw) {
+    a = (a + c) % 65521;
+    b = (b + a) % 65521;
+  }
+  for (size_t off = 0; off < raw.size() || off == 0; off += 65535) {
+    const size_t n = std::min<size_t>(65535, raw.size() - off);
+    const bool last = off + n >= raw.size();
+    z.push_back(last ? 1 : 0);
+    z.push_back(char(n & 0xFF));
+    z.push_back(char(n >> 8));
+    z.push_back(char(~n & 0xFF));
+    z.push_back(char((~n >> 8) & 0xFF));
+    z.append(raw, off, n);
+    if (last) {
+      break;
+    }
+  }
+  dump_put_be32(z, (b << 16) | a);
+  std::string ihdr;
+  dump_put_be32(ihdr, w);
+  dump_put_be32(ihdr, h);
+  ihdr += std::string("\x08\x02\x00\x00\x00", 5);
+  std::string png("\x89PNG\r\n\x1a\n", 8);
+  dump_chunk(png, "IHDR", ihdr);
+  dump_chunk(png, "IDAT", z);
+  dump_chunk(png, "IEND", std::string());
+  const std::string tmp = path + ".tmp";
+  FILE* f = std::fopen(tmp.c_str(), "wb");
+  if (f == nullptr) {
+    return false;
+  }
+  const bool ok = std::fwrite(png.data(), 1, png.size(), f) == png.size();
+  std::fclose(f);
+  return ok && std::rename(tmp.c_str(), path.c_str()) == 0;
+}
+
+/* The mapped frame buffer (BGRA8 or RGBA8, rows of `stride` bytes) to RGB8,
+ * box-filtered down by `scale`, written as DIR/f_<label>.png. */
+void dump_frame(const FrameDumpRequest& req, const uint8_t* px, uint32_t w, uint32_t h, uint32_t stride, bool bgra) {
+  const float s = req.scale > 0.f && req.scale <= 1.f ? req.scale : 1.f;
+  const uint32_t ow = std::max<uint32_t>(1, uint32_t(w * s)), oh = std::max<uint32_t>(1, uint32_t(h * s));
+  std::vector<uint8_t> out(size_t(ow) * oh * 3);
+  for (uint32_t y = 0; y < oh; y++) {
+    const uint32_t y0 = uint32_t(uint64_t(y) * h / oh), y1 = std::max(y0 + 1, uint32_t(uint64_t(y + 1) * h / oh));
+    for (uint32_t x = 0; x < ow; x++) {
+      const uint32_t x0 = uint32_t(uint64_t(x) * w / ow), x1 = std::max(x0 + 1, uint32_t(uint64_t(x + 1) * w / ow));
+      uint32_t sum[3] = {0, 0, 0}, n = 0;
+      for (uint32_t yy = y0; yy < y1 && yy < h; yy++) {
+        const uint8_t* row = px + size_t(yy) * stride;
+        for (uint32_t xx = x0; xx < x1 && xx < w; xx++) {
+          const uint8_t* p = row + size_t(xx) * 4;
+          sum[0] += bgra ? p[2] : p[0];
+          sum[1] += p[1];
+          sum[2] += bgra ? p[0] : p[2];
+          n++;
+        }
+      }
+      for (int c = 0; c < 3; c++) {
+        out[(size_t(y) * ow + x) * 3 + c] = uint8_t(n ? (sum[c] + n / 2) / n : 0);
+      }
+    }
+  }
+  const std::string path = req.dir + "/f_" + std::to_string(req.label) + ".png";
+  if (!dump_write_png(path, out, ow, oh)) {
+    Log.warn("frame dump: cannot write {}", path);
+  }
+}
+} // namespace
+
 void end_frame() noexcept {
   ZoneScoped;
   AndroidTraceScope trace("Aurora end frame / FIFO drain");
@@ -347,8 +475,14 @@ void end_frame() noexcept {
   }
 #endif
 
+  FrameDumpRequest frameDump;
+  {
+    std::lock_guard lock{g_frameDumpMutex};
+    frameDump = std::move(g_frameDumpNext);
+    g_frameDumpNext = {};
+  }
   gfx::end_frame([rmlBindGroup = std::move(rmlBindGroup), rmlOverlay, viewport,
-                  imguiDrawData = std::move(imguiDrawData)](
+                  imguiDrawData = std::move(imguiDrawData), frameDump = std::move(frameDump)](
                      wgpu::CommandEncoder& encoder, std::vector<gfx::AfterSubmitCallback> afterSubmitCallbacks) {
     wgpu::Texture currentTexture;
     wgpu::TextureView currentView;
@@ -446,6 +580,33 @@ void end_frame() noexcept {
     } else {
       Log.info("Skipping present; no usable surface texture ({})", magic_enum::enum_name(surfaceStatus));
     }
+    /* frame dump: copy the frame buffer the present blit reads from */
+    wgpu::Buffer dumpBuffer;
+    uint32_t dumpW = 0, dumpH = 0, dumpStride = 0;
+    bool dumpBgra = true;
+    if (frameDump.on) {
+      const auto& src =
+          webgpu::g_graphicsConfig.msaaSamples > 1 ? webgpu::g_frameBufferResolved : webgpu::g_frameBuffer;
+      dumpW = src.size.width;
+      dumpH = src.size.height;
+      dumpStride = (dumpW * 4 + 255) & ~255u;
+      dumpBgra = src.format == wgpu::TextureFormat::BGRA8Unorm || src.format == wgpu::TextureFormat::BGRA8UnormSrgb;
+      if (dumpW != 0 && dumpH != 0 && src.texture) {
+        const wgpu::BufferDescriptor bufferDescriptor{
+            .label = "Frame dump",
+            .usage = wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst,
+            .size = uint64_t(dumpStride) * dumpH,
+        };
+        dumpBuffer = g_device.CreateBuffer(&bufferDescriptor);
+        const wgpu::TexelCopyTextureInfo copySrc{.texture = src.texture};
+        const wgpu::TexelCopyBufferInfo copyDst{
+            .layout = {.offset = 0, .bytesPerRow = dumpStride, .rowsPerImage = dumpH},
+            .buffer = dumpBuffer,
+        };
+        const wgpu::Extent3D copySize{dumpW, dumpH, 1};
+        encoder.CopyTextureToBuffer(&copySrc, &copyDst, &copySize);
+      }
+    }
     webgpu::gpu_prof::frame_end(encoder);
     const wgpu::CommandBufferDescriptor cmdBufDescriptor{.label = "Redraw command buffer"};
     const auto buffer = encoder.Finish(&cmdBufDescriptor);
@@ -453,6 +614,22 @@ void end_frame() noexcept {
       ZoneScopedN("Queue Submit");
       AndroidTraceScope trace("GPU queue submit");
       g_queue.Submit(1, &buffer);
+    }
+    if (dumpBuffer) {
+      bool mapped = false;
+      const uint64_t size = uint64_t(dumpStride) * dumpH;
+      const auto future = dumpBuffer.MapAsync(wgpu::MapMode::Read, 0, size, wgpu::CallbackMode::WaitAnyOnly,
+                                              [&mapped](wgpu::MapAsyncStatus status, wgpu::StringView) {
+                                                mapped = status == wgpu::MapAsyncStatus::Success;
+                                              });
+      webgpu::g_instance.WaitAny(future, UINT64_MAX);
+      if (mapped) {
+        dump_frame(frameDump, static_cast<const uint8_t*>(dumpBuffer.GetConstMappedRange(0, size)), dumpW, dumpH,
+                   dumpStride, dumpBgra);
+        dumpBuffer.Unmap();
+      } else {
+        Log.warn("frame dump: mapping failed for frame {}", frameDump.label);
+      }
     }
     webgpu::gpu_prof::after_submit();
     if (canPresent && g_surface) {
@@ -571,6 +748,10 @@ void aurora_shutdown() {
 const AuroraEvent* aurora_update() { return aurora::update(); }
 bool aurora_begin_frame() { return aurora::begin_frame(); }
 void aurora_end_frame() { aurora::end_frame(); }
+void aurora_dump_next_frame(const char* dir, int32_t label, float scale) {
+  std::lock_guard lock{aurora::g_frameDumpMutex};
+  aurora::g_frameDumpNext = {.on = dir != nullptr, .label = label, .scale = scale, .dir = dir ? dir : ""};
+}
 SDL_Window* aurora_get_window() { return aurora::window::get_sdl_window(); }
 AuroraWindowSize aurora_get_window_size() {
   return aurora::window::get_sdl_window() != nullptr ? aurora::window::get_window_size() : AuroraWindowSize{};

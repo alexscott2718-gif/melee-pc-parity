@@ -54,6 +54,10 @@ void pc_slp_play_spawn(int slot, float* x, float* y, float* z);
 void pc_slp_play_pre_tick(void);
 void pc_slp_play_frame_start(void);
 void pc_slp_play_post_tick(uint64_t proc_mask);
+/* vi.c, before aurora_end_frame: with MELEE_SLP_DUMP=<dir> asks aurora to
+ * write the picture about to be presented as <dir>/frames/f_<frame>.png,
+ * <frame> being the Slippi frame it shows (each frame's first picture). */
+void pc_slp_play_dump_frame(void);
 
 #ifdef __cplusplus
 }

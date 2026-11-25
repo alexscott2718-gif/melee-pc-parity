@@ -139,6 +139,10 @@ void aurora_shutdown();
 const AuroraEvent* aurora_update();
 bool aurora_begin_frame();
 void aurora_end_frame();
+/* Frame dump: the next aurora_end_frame also copies the frame buffer back and
+ * writes it to DIR/f_<label>.png, scaled by SCALE (0 < SCALE <= 1). The copy
+ * waits for the GPU, so it only costs time; nothing else changes. */
+void aurora_dump_next_frame(const char* dir, int32_t label, float scale);
 
 void aurora_set_log_level(AuroraLogLevel level);
 void aurora_set_pause_on_focus_lost(bool value);

@@ -37,7 +37,14 @@
  * periodic pad alarm the scene loop polls once per iteration and frame
  * pacing is skipped, so playback runs as fast as the host allows. When the
  * last recorded frame has run, or the VS scene ends, the process exits
- * through pc_exit_requested. */
+ * through pc_exit_requested.
+ *
+ * MELEE_SLP_DUMP=<dir> (with MELEE_SLP_DUMP_SCALE, default 1, and optionally
+ * MELEE_SLP_DUMP_FIRST / MELEE_SLP_DUMP_LAST) also writes the first picture
+ * of every shown frame (in that window) to <dir>/frames/f_<frame>.png, in
+ * the same Slippi frame numbering, and <dir>/dump.json when the playback
+ * ends. It needs a real renderer (not MELEE_BACKEND=null); the pictures are
+ * read back after the simulation has run, so they cannot change it. */
 #include "compat.h"
 #include "pc/pc.h"
 #include "pc/slp.h"
@@ -55,7 +62,9 @@
 #include <melee/pl/player.h>
 #pragma GCC diagnostic pop
 
+#include <aurora/aurora.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -86,6 +95,13 @@ static int s_k;         /* cursor: first frame whose fsc >= tick */
 static int s_cur = -1;  /* frame simulated on this tick, -1 = none */
 static bool s_done;
 static u32 s_ticks, s_bad, s_pauses;
+static s32 s_shown = INT32_MIN; /* the Slippi frame the next picture shows */
+static const char* s_dump_dir;
+static float s_dump_scale = 1.0F;
+static s32 s_dump_last = INT32_MIN, s_dump_first = INT32_MIN;
+static u32 s_dump_count;
+static s32 s_dump_lo = INT32_MIN, s_dump_hi = INT32_MAX;
+static char s_slp_path[1024];
 
 static u32 be32(const u8* p) {
     return ((u32)p[0] << 24) | ((u32)p[1] << 16) | ((u32)p[2] << 8) | p[3];
@@ -229,6 +245,24 @@ bool pc_slp_play_active(void) {
         s_on = p != NULL && p[0] != '\0';
         if (s_on) {
             load(p);
+            snprintf(s_slp_path, sizeof s_slp_path, "%s", p);
+            const char* dd = getenv("MELEE_SLP_DUMP");
+            if (dd != NULL && dd[0] != '\0') {
+                static char frames[1024];
+                const char* sc = getenv("MELEE_SLP_DUMP_SCALE");
+                s_dump_scale = sc != NULL ? (float)atof(sc) : 1.0F;
+                snprintf(frames, sizeof frames, "%s/frames", dd);
+                mkdir(dd, 0777);
+                mkdir(frames, 0777);
+                s_dump_dir = frames;
+                if (getenv("MELEE_SLP_DUMP_FIRST") != NULL) {
+                    s_dump_lo = atoi(getenv("MELEE_SLP_DUMP_FIRST"));
+                }
+                if (getenv("MELEE_SLP_DUMP_LAST") != NULL) {
+                    s_dump_hi = atoi(getenv("MELEE_SLP_DUMP_LAST"));
+                }
+                pc_log_line("slp-play: dumping frames to %s (scale %.3f)", frames, (double)s_dump_scale);
+            }
         }
     }
     return s_on;
@@ -479,8 +513,53 @@ void pc_slp_play_post_tick(uint64_t proc_mask) {
         return;
     }
     const bool ran = !(proc_mask & (1ULL << HSD_GOBJ_PLINK_FIGHTER));
+    if (ran && s_cur >= 0) {
+        s_shown = s_cur + s_first;
+    }
     if (ran != (s_cur >= 0) && s_bad++ < 16) {
         pc_log_line("slp-play: tick %u: fighters %s but the recording %s", gm_801A4BB8() - 1,
             ran ? "ran" : "held", s_cur >= 0 ? "has a frame" : "has none");
+    }
+}
+
+static void dump_json(void) {
+    char path[1100];
+    FILE* f;
+    const char* dd = getenv("MELEE_SLP_DUMP");
+    const char* base = strrchr(s_slp_path, '/');
+    char rec[256];
+    snprintf(rec, sizeof rec, "%s", base ? base + 1 : s_slp_path);
+    char* dot = strrchr(rec, '.');
+    if (dot != NULL) {
+        *dot = '\0';
+    }
+    snprintf(path, sizeof path, "%s/dump.json", dd);
+    f = fopen(path, "w");
+    if (f == NULL) {
+        return;
+    }
+    fprintf(f, "{\n  \"recording\": \"%s\",\n  \"source\": \"melee-pc MELEE_SLP_PLAY\",\n"
+               "  \"first\": %d,\n  \"last\": %d,\n  \"frames\": %u,\n  \"scale\": %.4f,\n"
+               "  \"numbering\": \"Slippi frame (post-frame state after that frame's update)\"\n}\n",
+        rec, s_dump_first, s_dump_last, s_dump_count, (double)s_dump_scale);
+    fclose(f);
+}
+
+void pc_slp_play_dump_frame(void) {
+    static bool atexit_set;
+    if (!pc_slp_play_active() || s_dump_dir == NULL || !in_vs() || s_shown == INT32_MIN ||
+        s_shown == s_dump_last || s_shown < s_dump_lo || s_shown > s_dump_hi)
+    {
+        return;
+    }
+    aurora_dump_next_frame(s_dump_dir, s_shown, s_dump_scale);
+    if (s_dump_first == INT32_MIN) {
+        s_dump_first = s_shown;
+    }
+    s_dump_last = s_shown;
+    s_dump_count++;
+    if (!atexit_set) {
+        atexit_set = true;
+        atexit(dump_json);
     }
 }
